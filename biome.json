@@ -1,0 +1,33 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.9/schema.json",
+  "files": {
+    "includes": [
+      "**",
+      "!!dist",
+      "!!_site",
+      "!!node_modules",
+      "!!coverage",
+      "!tests/vendor",
+      "!tests/fixtures",
+      "!examples",
+      "!docs/screenshots",
+      "!docs/web/vendor"
+    ]
+  },
+  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
+  "javascript": { "formatter": { "quoteStyle": "single", "semicolons": "always" } },
+  "linter": {
+    "rules": {
+      "style": { "noNonNullAssertion": "off", "useTemplate": "off" },
+      "complexity": { "noForEach": "off" },
+      "suspicious": { "noTemplateCurlyInString": "off" }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["tests/**"],
+      "linter": { "rules": { "suspicious": { "noExplicitAny": "off" } } }
+    }
+  ],
+  "assist": { "actions": { "source": { "organizeImports": "on" } } }
+}

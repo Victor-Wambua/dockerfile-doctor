@@ -1,0 +1,68 @@
+{
+  "name": "dockerfile-doctor",
+  "version": "0.1.0",
+  "description": "A fast, dependency-light linter and fixer for Dockerfiles and docker-compose files: security, reproducibility, image size.",
+  "keywords": [
+    "dockerfile",
+    "docker",
+    "docker-compose",
+    "lint",
+    "linter",
+    "sarif",
+    "security"
+  ],
+  "license": "MIT",
+  "author": "Victor Wambua",
+  "homepage": "https://victor-wambua.github.io/dockerfile-doctor/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Victor-Wambua/dockerfile-doctor.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "dockerfile-doctor": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "action.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/postbuild.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "docs:rules": "node scripts/gen-rules-md.mjs",
+    "docs:check": "node scripts/gen-rules-md.mjs --check",
+    "site:build": "node scripts/build-site.mjs",
+    "site:dev": "node scripts/build-site.mjs --serve --port 4170",
+    "dogfood": "node dist/cli.js examples/good",
+    "ci": "npm run lint && npm run typecheck && npm test && npm run build && npm run docs:check && npm run dogfood"
+  },
+  "dependencies": {
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.9",
+    "@types/node": "^22.10.0",
+    "ajv": "^8.20.0",
+    "ajv-draft-04": "^1.0.0",
+    "esbuild": "^0.28.2",
+    "typescript": "~5.9.3",
+    "vitest": "^5.1.2"
+  }
+}
