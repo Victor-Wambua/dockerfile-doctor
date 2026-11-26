@@ -286,7 +286,25 @@ export async function runCli(argv: string[], io: IO): Promise<number> {
 
   let output: string;
   if (v['fix-dry-run']) {
-    output = diffs.length > 0 ? diffs.join('\n') : 'Nothing to fix automatically.\n';
+    const paint =
+      v.color === true ||
+      (v['no-color'] !== true && !io.env.NO_COLOR && (io.isTTY || Boolean(io.env.FORCE_COLOR)));
+    const colorDiff = (d: string) =>
+      paint
+        ? d
+            .split('\n')
+            .map((l) =>
+              l.startsWith('+') && !l.startsWith('+++')
+                ? `\u001b[32m${l}\u001b[0m`
+                : l.startsWith('-') && !l.startsWith('---')
+                  ? `\u001b[31m${l}\u001b[0m`
+                  : l.startsWith('@@')
+                    ? `\u001b[36m${l}\u001b[0m`
+                    : l,
+            )
+            .join('\n')
+        : d;
+    output = diffs.length > 0 ? diffs.map(colorDiff).join('\n') : 'Nothing to fix automatically.\n';
     if (diffs.length > 0)
       output += `\n${fixedCount} fix${fixedCount === 1 ? '' : 'es'} would be applied. Remaining findings are not auto-fixable.\n`;
   } else {
