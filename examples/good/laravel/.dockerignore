@@ -1,0 +1,12 @@
+.git
+vendor
+node_modules
+storage/logs/*
+storage/framework/cache/*
+.env
+.env.*
+!.env.example
+*.log
+Dockerfile
+compose.yaml
+.dockerignore

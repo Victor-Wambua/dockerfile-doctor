@@ -1,0 +1,26 @@
+# Compose file with the usual shortcuts. Do not copy.
+# expect: DC001 DC002 DC003 DC004 DC005 DC006 DC007 DC008 DC009 DC013 DC014 DC015
+version: "3.8"
+services:
+  db:
+    image: postgres:latest
+    container_name: db
+    environment:
+      POSTGRES_PASSWORD: supersecret-prod-pw
+    ports:
+      - "5432:5432"
+  cache:
+    image: redis
+    ports:
+      - "6379:6379"
+  api:
+    image: myorg/api:latest
+    privileged: true
+    network_mode: host
+    user: root
+    environment:
+      - STRIPE_KEY=sk_live_abcdefghijklmnopqrstuv
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - db

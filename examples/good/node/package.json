@@ -1,0 +1,15 @@
+{
+  "name": "sample-node-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tiny HTTP service used to prove the Node example Dockerfile builds and runs.",
+  "license": "MIT",
+  "type": "commonjs",
+  "scripts": {
+    "build": "esbuild src/server.js --bundle --platform=node --target=node22 --outfile=dist/server.js",
+    "start": "node dist/server.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
