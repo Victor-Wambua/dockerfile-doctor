@@ -199,7 +199,7 @@ export function tokenize(text: string): Command[] {
       i++; // safety: never stall
       continue;
     }
-    words.push({ text: value, start, end: i, quoted, hasExpansion });
+    words.push({ text: value, start, end: Math.min(i, n), quoted, hasExpansion });
   }
   flush('');
   // Mark pipedFrom.

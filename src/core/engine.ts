@@ -50,8 +50,12 @@ export function lint(text: string, options: LintOptions = {}): LintResult {
     const sev = settings[rule.id];
     if (sev === 'off') return;
     const severity = sev ?? input.severity ?? rule.severity;
-    const start = Math.max(0, Math.min(input.at.start, text.length));
-    let end = Math.max(start, Math.min(input.at.end, text.length));
+    const rawStart = Number.isFinite(input.at.start) ? input.at.start : 0;
+    const start = Math.max(0, Math.min(rawStart, text.length));
+    let end = Math.max(
+      start,
+      Math.min(Number.isFinite(input.at.end) ? input.at.end : start, text.length),
+    );
     if (end === start) end = Math.min(start + 1, text.length);
     const a = lines.position(start);
     const b = lines.position(end);
