@@ -12,7 +12,8 @@
       "!examples",
       "!docs/screenshots",
       "!docs/web/vendor",
-      "!**/*.md"
+      "!**/*.md",
+      "!tools-local"
     ]
   },
   "formatter": {
