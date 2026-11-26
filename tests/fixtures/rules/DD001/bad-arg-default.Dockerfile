@@ -1,0 +1,3 @@
+ARG BASE=ubuntu
+FROM ${BASE}
+USER 1000

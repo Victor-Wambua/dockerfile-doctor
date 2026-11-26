@@ -1,0 +1,6 @@
+services:
+  web:
+    image: nginx:1.27
+    restart: unless-stopped
+  migrate:
+    image: myorg/app:1.0

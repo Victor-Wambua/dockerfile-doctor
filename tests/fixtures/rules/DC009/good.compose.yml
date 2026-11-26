@@ -1,0 +1,7 @@
+services:
+  api:
+    image: myorg/api:1.4.2
+    deploy:
+      resources:
+        limits:
+          memory: 512M

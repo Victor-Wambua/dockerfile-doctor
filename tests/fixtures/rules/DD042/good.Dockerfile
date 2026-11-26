@@ -1,0 +1,2 @@
+FROM alpine:3.20
+EXPOSE 8080 9000/udp 3000-3010 ${PORT}

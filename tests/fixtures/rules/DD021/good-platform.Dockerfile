@@ -1,0 +1,3 @@
+FROM --platform=$BUILDPLATFORM alpine:3.20
+ARG TARGETARCH
+COPY bin-${TARGETARCH}/app /app

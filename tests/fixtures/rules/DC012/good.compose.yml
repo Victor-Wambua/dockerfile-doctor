@@ -1,0 +1,3 @@
+services:
+  agent:
+    image: myorg/agent:1.0

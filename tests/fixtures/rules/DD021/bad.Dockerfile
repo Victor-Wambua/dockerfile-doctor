@@ -1,0 +1,3 @@
+ARG APP_VERSION=1.4.0
+FROM alpine:3.20
+LABEL version=$APP_VERSION

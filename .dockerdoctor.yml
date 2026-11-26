@@ -1,0 +1,8 @@
+# Dockerfile Doctor configuration for this repository.
+# The bad gallery and the rule fixtures are broken on purpose.
+exclude:
+  - tests/fixtures/**
+  - node_modules/**
+ignore:
+  - path: examples/bad/**
+    rules: [all]

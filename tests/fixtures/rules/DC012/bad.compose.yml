@@ -1,0 +1,4 @@
+services:
+  agent:
+    image: myorg/agent:1.0
+    pid: host

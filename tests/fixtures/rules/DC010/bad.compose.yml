@@ -1,0 +1,9 @@
+services:
+  db:
+    image: postgres:16
+    healthcheck:
+      test: ["CMD", "pg_isready"]
+  api:
+    image: myorg/api:1.0
+    depends_on:
+      - db

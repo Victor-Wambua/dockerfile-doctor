@@ -1,0 +1,4 @@
+services:
+  app:
+    image: myorg/app:1.0
+    cap_add: [NET_BIND_SERVICE]

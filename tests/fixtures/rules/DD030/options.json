@@ -1,0 +1,1 @@
+{"bad.Dockerfile": {"dockerignore": {"exists": false, "lines": []}}, "good.Dockerfile": {"dockerignore": {"exists": true, "lines": [".git"]}}, "good-no-broad-copy.Dockerfile": {"dockerignore": {"exists": false, "lines": []}}}

@@ -1,0 +1,6 @@
+services:
+  cache:
+    image: redis:7
+    ports:
+      - target: 6379
+        published: 6379

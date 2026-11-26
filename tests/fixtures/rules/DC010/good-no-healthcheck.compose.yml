@@ -1,0 +1,7 @@
+services:
+  cache:
+    image: redis:7
+  api:
+    image: myorg/api:1.0
+    depends_on:
+      - cache

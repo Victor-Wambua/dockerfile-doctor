@@ -1,0 +1,5 @@
+services:
+  api:
+    image: myorg/api:1.0
+    environment:
+      - STRIPE_KEY=sk_live_abcdefghijklmnopqrstuv

@@ -1,0 +1,5 @@
+services:
+  api:
+    image: myorg/api:1.4.2
+    healthcheck:
+      test: ["CMD", "true"]
