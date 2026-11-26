@@ -1,0 +1,1 @@
+# Empty on purpose: lets CI lint examples/bad without the repo ignore rules.

@@ -11,23 +11,60 @@
       "!tests/fixtures",
       "!examples",
       "!docs/screenshots",
-      "!docs/web/vendor"
+      "!docs/web/vendor",
+      "!**/*.md"
     ]
   },
-  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
-  "javascript": { "formatter": { "quoteStyle": "single", "semicolons": "always" } },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always"
+    }
+  },
   "linter": {
     "rules": {
-      "style": { "noNonNullAssertion": "off", "useTemplate": "off" },
-      "complexity": { "noForEach": "off" },
-      "suspicious": { "noTemplateCurlyInString": "off" }
+      "style": {
+        "noNonNullAssertion": "off",
+        "useTemplate": "off"
+      },
+      "complexity": {
+        "noForEach": "off"
+      },
+      "suspicious": {
+        "noTemplateCurlyInString": "off"
+      },
+      "a11y": {
+        "useSemanticElements": "off"
+      }
     }
   },
   "overrides": [
     {
       "includes": ["tests/**"],
-      "linter": { "rules": { "suspicious": { "noExplicitAny": "off" } } }
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
     }
   ],
-  "assist": { "actions": { "source": { "organizeImports": "on" } } }
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "css": {
+    "linter": {
+      "enabled": false
+    }
+  }
 }

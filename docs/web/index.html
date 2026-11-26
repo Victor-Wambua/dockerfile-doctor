@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dockerfile Doctor: playground</title>
+    <meta name="description" content="Paste a Dockerfile or docker-compose file and get security, reproducibility and image-size findings instantly. Runs entirely in your browser." />
+    <meta name="theme-color" content="#14213d" />
+    <link rel="icon" href="./logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <a class="skip" href="#editor">Skip to the editor</a>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="./"><img src="./logo.svg" alt="" width="32" height="32" />Dockerfile Doctor</a>
+        <nav class="nav" aria-label="Main">
+          <a href="./" aria-current="page">Playground</a>
+          <a href="./rules.html">Rules ({{RULE_COUNT}})</a>
+          <a href="https://github.com/Victor-Wambua/dockerfile-doctor">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <div class="wrap">
+        <section class="intro">
+          <span class="pill"><span class="dot" aria-hidden="true"></span>Runs in your browser. Nothing you paste is uploaded.</span>
+          <h1>Find the problems before the image ships</h1>
+          <p>Paste a Dockerfile or docker-compose file. The same linter as the CLI checks it for root users, unpinned images, baked-in secrets, layer bloat and more, then offers the safe fixes.</p>
+        </section>
+
+        <div class="grid">
+          <section class="card" aria-labelledby="ed-h">
+            <div class="card-head">
+              <h2 id="ed-h">Source</h2>
+              <label class="sr" for="sample" style="position:absolute;left:-9999px">Load a sample</label>
+              <select id="sample" aria-label="Load a sample"></select>
+              <div class="seg" role="group" aria-label="File type">
+                <button type="button" data-kind="auto" aria-pressed="true">Auto</button>
+                <button type="button" data-kind="dockerfile" aria-pressed="false">Dockerfile</button>
+                <button type="button" data-kind="compose" aria-pressed="false">Compose</button>
+              </div>
+            </div>
+            <div class="editor" id="editor">
+              <div class="gutter" id="gutter" aria-hidden="true"></div>
+              <div class="pane">
+                <div class="marks" aria-hidden="true"><div class="marks-inner" id="marks"></div></div>
+                <textarea id="code" class="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Dockerfile or compose source"></textarea>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="fi-h">
+            <div class="card-head">
+              <h2 id="fi-h">Findings</h2>
+              <button type="button" id="undo" disabled>Undo fix</button>
+              <button type="button" id="fixall" class="primary" disabled>Apply all safe fixes</button>
+            </div>
+            <div class="summary" id="summary" role="group" aria-label="Filter by severity"></div>
+            <ul class="findings" id="findings" aria-label="Findings"></ul>
+            <div class="status" id="status" role="status" aria-live="polite"></div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Dockerfile Doctor {{VERSION}} · MIT ·
+        <a href="https://github.com/Victor-Wambua/dockerfile-doctor">Source and CLI</a> ·
+        <a href="./rules.html">Rule catalogue</a>. Heuristic checks on the file only; it does not scan images or look up CVEs.
+      </div>
+    </footer>
+    <script src="./assets/app.js" defer></script>
+  </body>
+</html>

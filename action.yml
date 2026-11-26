@@ -1,0 +1,95 @@
+name: Dockerfile Doctor
+description: Lint Dockerfiles and docker-compose files for security, reproducibility and image size. Annotates pull requests and can upload SARIF to code scanning.
+author: Victor Wambua
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  path:
+    description: Files or directories to lint, space separated.
+    required: false
+    default: "."
+  fail-on:
+    description: Fail the job when a finding is at or above this level (error, warn, info, never).
+    required: false
+    default: warn
+  config:
+    description: Path to a .dockerdoctor.yml. By default the nearest one is used.
+    required: false
+    default: ""
+  upload-sarif:
+    description: Also write SARIF and upload it to GitHub code scanning. The workflow needs `security-events write`.
+    required: false
+    default: "false"
+  working-directory:
+    description: Directory to run in.
+    required: false
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+
+    - name: Build Dockerfile Doctor
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        npm ci --no-audit --no-fund
+        npm run build
+
+    - name: Lint
+      id: lint
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        DD_PATHS: ${{ inputs.path }}
+        DD_FAIL_ON: ${{ inputs.fail-on }}
+        DD_CONFIG: ${{ inputs.config }}
+      run: |
+        set -uo pipefail
+        args=()
+        if [ -n "$DD_CONFIG" ]; then args+=(--config "$DD_CONFIG"); fi
+        # Human-readable report in the job summary (never fails the step).
+        {
+          echo '### Dockerfile Doctor'
+          echo '```'
+          # shellcheck disable=SC2086
+          node "$GITHUB_ACTION_PATH/dist/cli.js" "${args[@]}" --fail-on never --no-color $DD_PATHS
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY" || true
+        # Inline annotations on the pull request, and the real exit code.
+        # shellcheck disable=SC2086
+        node "$GITHUB_ACTION_PATH/dist/cli.js" "${args[@]}" --format github --fail-on "$DD_FAIL_ON" $DD_PATHS
+        code=$?
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        exit 0
+
+    - name: Write SARIF
+      if: ${{ inputs.upload-sarif == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        DD_PATHS: ${{ inputs.path }}
+        DD_CONFIG: ${{ inputs.config }}
+      run: |
+        args=()
+        if [ -n "$DD_CONFIG" ]; then args+=(--config "$DD_CONFIG"); fi
+        # shellcheck disable=SC2086
+        node "$GITHUB_ACTION_PATH/dist/cli.js" "${args[@]}" --format sarif --fail-on never --output dockerfile-doctor.sarif $DD_PATHS
+
+    - name: Upload SARIF
+      if: ${{ inputs.upload-sarif == 'true' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.working-directory }}/dockerfile-doctor.sarif
+        category: dockerfile-doctor
+
+    - name: Apply the result
+      shell: bash
+      env:
+        CODE: ${{ steps.lint.outputs.exit-code }}
+      run: exit "${CODE:-0}"

@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint, test, build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Rule docs are up to date
+        run: npm run docs:check
+      - name: Good examples lint clean (no errors or warnings)
+        run: npm run dogfood
+      - name: Playground builds
+        run: npm run site:build
+
+  docker-examples:
+    name: Good examples really build and run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Node (distroless)
+        run: scripts/smoke.sh examples/good/node dd-example-node 8080
+      - name: FastAPI (uv, non-root)
+        run: scripts/smoke.sh examples/good/fastapi dd-example-fastapi 8000
+      - name: Laravel-shaped (php-fpm + nginx)
+        working-directory: examples/good/laravel
+        run: |
+          docker compose config --quiet
+          docker compose up --build --wait --wait-timeout 180
+          curl -fsS http://127.0.0.1:8080/ping
+          echo
+          curl -fsS http://127.0.0.1:8080/
+          echo
+          docker compose ps
+      - name: Laravel compose logs on failure
+        if: failure()
+        working-directory: examples/good/laravel
+        run: docker compose logs --tail 50
+      - name: Image sizes
+        run: docker image ls --format 'table {{.Repository}}\t{{.Tag}}\t{{.Size}}'
+
+  action:
+    name: GitHub Action works
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Good examples pass
+        uses: ./
+        with:
+          path: examples/good
+          fail-on: warn
+      - name: Bad examples fail the job
+        id: bad
+        uses: ./
+        continue-on-error: true
+        with:
+          path: examples/bad
+          config: tests/fixtures/empty-config.yml
+          fail-on: error
+      - name: The previous step must have failed
+        run: |
+          if [ "${{ steps.bad.outcome }}" != "failure" ]; then
+            echo "expected the action to fail on examples/bad, got ${{ steps.bad.outcome }}"
+            exit 1
+          fi
