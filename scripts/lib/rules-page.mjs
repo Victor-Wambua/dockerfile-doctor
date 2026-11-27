@@ -16,34 +16,30 @@ export function renderRulesPage(rules, version) {
     .map(
       (
         r,
-      ) => `<article class="card rule" id="${r.id}" data-kind="${r.kind}" data-sev="${r.severity}" data-cat="${r.category}" data-text="${esc(`${r.id} ${r.name} ${r.summary} ${r.explanation} ${r.why}`.toLowerCase())}">
-  <header>
-    <h2><a href="#${r.id}"><span class="rid">${r.id}</span> ${esc(r.summary)}</a></h2>
-    <span class="sev ${r.severity}">${SEV[r.severity]}</span>
-    <span class="tag">${r.category}</span>
-    <span class="tag">${r.kind === 'compose' ? 'compose' : 'Dockerfile'}</span>
-    <span class="tag"><code>${esc(r.name)}</code></span>
-    ${r.fixable ? '<span class="tag fixable">auto-fix</span>' : ''}
-  </header>
-  <p>${esc(r.explanation)}</p>
-  <p><span class="label">Why it matters.</span> ${esc(r.why)}</p>
-  <div class="ba">
-    <figure><figcaption>Before</figcaption><pre class="snip">${esc(r.before)}</pre></figure>
-    <figure><figcaption>After</figcaption><pre class="snip">${esc(r.after)}</pre></figure>
+      ) => `<article class="rule" id="${r.id}" data-kind="${r.kind}" data-sev="${r.severity}" data-cat="${r.category}" data-fix="${r.fixable ? '1' : '0'}" data-text="${esc(`${r.id} ${r.name} ${r.summary} ${r.explanation} ${r.why}`.toLowerCase())}">
+  <h2><a href="#${r.id}"><span class="rid">${r.id}</span>${esc(r.summary)}</a></h2>
+  <ul class="facts" aria-label="Details for ${r.id}">
+    <li><span class="sev ${r.severity}"><i class="mk mk-${r.severity}" aria-hidden="true"></i>${SEV[r.severity]}</span></li>
+    <li>${r.category}</li>
+    <li>${r.kind === 'compose' ? 'Compose file' : 'Dockerfile'}</li>
+    <li><code class="rname">${esc(r.name)}</code></li>
+    ${r.fixable ? '<li class="fixable">Auto-fix available</li>' : ''}
+  </ul>
+  <div class="rule-body">
+    <p>${esc(r.explanation)}</p>
+    <p><span class="label">Why it matters.</span> ${esc(r.why)}</p>
+    <div class="ba">
+      <figure><figcaption>Before</figcaption><pre class="snip">${esc(r.before)}</pre></figure>
+      <figure><figcaption>After</figcaption><pre class="snip">${esc(r.after)}</pre></figure>
+    </div>
   </div>
 </article>`,
     )
     .join('\n');
-  const catChips = CAT_ORDER.map(
-    (c) =>
-      `<button type="button" class="chip" data-filter="cat" data-value="${c}" aria-pressed="false">${c}</button>`,
-  ).join('');
-  const sevChips = ['error', 'warn', 'info']
-    .map(
-      (s) =>
-        `<button type="button" class="chip ${s}" data-filter="sev" data-value="${s}" aria-pressed="false">${SEV[s]}</button>`,
-    )
-    .join('');
+  const check = (filter, value, text) =>
+    `<label class="check"><input type="checkbox" data-filter="${filter}" value="${value}" />${text}</label>`;
+  const sevBoxes = ['error', 'warn', 'info'].map((s) => check('sev', s, SEV[s])).join('');
+  const catBoxes = CAT_ORDER.map((c) => check('cat', c, c[0].toUpperCase() + c.slice(1))).join('');
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -67,20 +63,23 @@ export function renderRulesPage(rules, version) {
         </nav>
       </div>
     </header>
-    <main>
+    <main id="main">
       <div class="wrap">
         <section class="intro">
           <h1>Rule catalogue</h1>
           <p>${rules.length} rules: ${counts.dockerfile} for Dockerfiles (<code>DD</code>) and ${counts.compose} for compose files (<code>DC</code>). Each id is stable, so it is safe to use in <code>.dockerdoctor.yml</code> and in <code># dd-ignore</code> comments. This page is generated from the rule metadata in the code.</p>
         </section>
-        <div class="filters" role="search">
-          <input type="search" id="q" placeholder="Search rules (id, word, tool)" aria-label="Search rules" />
-          ${sevChips}
-          ${catChips}
-          <button type="button" class="chip" data-filter="kind" data-value="dockerfile" aria-pressed="false">Dockerfile</button>
-          <button type="button" class="chip" data-filter="kind" data-value="compose" aria-pressed="false">Compose</button>
-          <button type="button" id="auto" class="chip" aria-pressed="false">Auto-fixable</button>
-        </div>
+        <form class="filters" role="search" aria-label="Filter rules" onsubmit="return false">
+          <div class="search">
+            <label class="field-label" for="q">Search rules</label>
+            <input type="search" id="q" placeholder="Id, word or tool, for example DD003 or sudo" autocomplete="off" />
+          </div>
+          <fieldset><legend>Severity</legend>${sevBoxes}</fieldset>
+          <fieldset><legend>Category</legend>${catBoxes}</fieldset>
+          <fieldset><legend>Applies to</legend>${check('kind', 'dockerfile', 'Dockerfile')}${check('kind', 'compose', 'Compose file')}</fieldset>
+          <fieldset><legend>Fix</legend><label class="check"><input type="checkbox" id="auto" />Auto-fix available</label></fieldset>
+          <button type="button" id="clear" class="clear hidden">Clear all filters</button>
+        </form>
         <p class="count" id="count" role="status" aria-live="polite">Showing ${rules.length} of ${rules.length} rules</p>
         <div class="rules" id="rules">
 ${cards}
@@ -89,7 +88,7 @@ ${cards}
       </div>
     </main>
     <footer>
-      <div class="wrap">Dockerfile Doctor ${esc(version)} · MIT · <a href="https://github.com/Victor-Wambua/dockerfile-doctor">Source and CLI</a></div>
+      <div class="wrap"><p>Dockerfile Doctor ${esc(version)}, MIT licence. <a href="https://github.com/Victor-Wambua/dockerfile-doctor">Source and CLI</a>.</p></div>
     </footer>
     <script src="./rules.js" defer></script>
   </body>
