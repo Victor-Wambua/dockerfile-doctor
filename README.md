@@ -157,6 +157,15 @@ flowchart LR
 
 The core (`src/core`, `src/rules`) has no Node-specific imports, so the same code runs in the CLI and, bundled with esbuild, in the browser playground. Everything is expressed as character ranges into the original text, which is what makes carets, SARIF regions and `--fix` edits line up exactly, even across continuation lines. Key decisions are written up in [docs/CASE-STUDY.md](docs/CASE-STUDY.md).
 
+## Playground design notes
+
+- Severity is a shape and a word (circle for error, triangle for warning, diamond for info), never colour alone, in the findings list and in the source gutter.
+- The severity counts are toggle buttons (`aria-pressed`) that filter the list. "Why it matters" is a real button with `aria-expanded` and `aria-controls`; "Rule page" is an underlined link.
+- Clicking a finding selects its range in the source and outlines the line. Applying fixes, undoing them, loading a sample and switching file type are announced in a live region, and focus moves to a control that still exists.
+- Undo covers fixes only. Editing the source by hand clears it, so it can never overwrite what you typed.
+- A compose file with no top-level `services:` key says nothing was checked instead of reporting a clean result.
+- The rule catalogue filters are labelled checkboxes in fieldsets. Text is 12px at the smallest, system fonts only, no network requests.
+
 ## Testing
 
 ```bash
