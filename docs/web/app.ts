@@ -16,15 +16,18 @@ const $ = <T extends HTMLElement>(id: string): T => {
 };
 
 const code = $<HTMLTextAreaElement>('code');
+const editor = $('editor');
 const gutter = $('gutter');
 const marks = $('marks');
 const summary = $('summary');
 const list = $('findings');
+const tally = $('tally');
+const srcMeta = $('srcmeta');
 const statusEl = $('status');
+const heading = $('fi-h');
 const fixAllBtn = $<HTMLButtonElement>('fixall');
 const undoBtn = $<HTMLButtonElement>('undo');
 const sampleSel = $<HTMLSelectElement>('sample');
-const LINE_HEIGHT = 13.5 * 1.6;
 
 let kindChoice: 'auto' | FileKind = 'auto';
 let findings: Finding[] = [];
@@ -32,12 +35,25 @@ let shown: Record<Severity, boolean> = { error: true, warn: true, info: true };
 let history: string[] = [];
 let activeLine = 0;
 let timer: number | undefined;
+let sayTimer: number | undefined;
+let showAll = false;
+const openWhy = new Set<string>();
+const LIST_CAP = 150;
 
 const SEV_LABEL: Record<Severity, string> = { error: 'Error', warn: 'Warning', info: 'Info' };
 const SEV_ORDER: Severity[] = ['error', 'warn', 'info'];
 
 function currentKind(): FileKind {
   return kindChoice === 'auto' ? detectKind(undefined, code.value) : kindChoice;
+}
+
+function kindName(kind: FileKind): string {
+  return kind === 'compose' ? 'compose file' : 'Dockerfile';
+}
+
+function lineHeightPx(): number {
+  const lh = Number.parseFloat(getComputedStyle(code).lineHeight);
+  return Number.isFinite(lh) && lh > 0 ? lh : 22.4;
 }
 
 function offsetOf(line: number, column: number): number {
@@ -62,8 +78,19 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+function marker(sev: Severity): HTMLElement {
+  return el('i', { class: `mk mk-${sev}`, 'aria-hidden': 'true' });
+}
+
+/** Size the editor to its content, within the limits set in CSS. */
+function fitEditor(lineCount: number): void {
+  const px = Math.ceil(lineCount * lineHeightPx() + 24);
+  editor.style.setProperty('--content-h', `${px}px`);
+}
+
 function renderGutter(): void {
   const lineCount = code.value.split('\n').length;
+  fitEditor(lineCount);
   const worst = new Map<number, Severity>();
   for (const f of findings) {
     for (let l = f.line; l <= Math.max(f.line, f.endLine); l++) {
@@ -77,6 +104,7 @@ function renderGutter(): void {
     const sev = worst.get(i);
     const d = el('div', { text: String(i) });
     if (sev) d.dataset.sev = sev;
+    if (i === activeLine) d.classList.add('g-active');
     g.append(d);
     m.append(
       el('div', { class: `${sev ? `m-${sev}` : ''}${i === activeLine ? ' m-active' : ''}` }),
@@ -101,24 +129,25 @@ function renderSummary(): void {
   for (const f of findings) counts[f.severity]++;
   const nodes: Node[] = [];
   for (const sev of SEV_ORDER) {
+    const noun =
+      sev === 'info' ? 'info' : `${SEV_LABEL[sev].toLowerCase()}${counts[sev] === 1 ? '' : 's'}`;
     const b = el('button', {
       type: 'button',
-      class: `chip ${sev}`,
+      class: `sevbtn ${sev}`,
       'aria-pressed': String(shown[sev]),
     });
     b.append(
-      el('b', { text: String(counts[sev]) }),
-      ` ${SEV_LABEL[sev].toLowerCase()}${counts[sev] === 1 || sev === 'info' ? '' : 's'}`,
+      el('b', { class: 'n', text: String(counts[sev]) }),
+      el('span', { class: 'lbl' }, marker(sev), noun),
     );
     b.addEventListener('click', () => {
       shown = { ...shown, [sev]: !shown[sev] };
+      showAll = false;
       renderSummary();
       renderList();
     });
     nodes.push(b);
   }
-  if (findings.length === 0 && code.value.trim() !== '')
-    nodes.push(el('span', { class: 'ok-msg', text: 'No problems found' }));
   summary.replaceChildren(...nodes);
 }
 
@@ -131,34 +160,41 @@ function renderList(): void {
   if (items.length === 0) {
     const msg =
       code.value.trim() === ''
-        ? ['Nothing to check yet', 'Paste a Dockerfile or pick a sample.']
+        ? ['Nothing to check yet', 'Paste a Dockerfile or compose file, or pick a sample.']
         : findings.length === 0
-          ? ['Clean', 'No findings at any severity. Try a bad sample to see the rules at work.']
-          : ['All findings hidden', 'Re-enable a severity with the chips above.'];
+          ? notCompose()
+            ? [
+                'No services found',
+                'Nothing was checked. A compose file needs a top-level "services:" key. Choose Dockerfile or Auto if this is a Dockerfile.',
+              ]
+            : [
+                'No problems found',
+                'No findings at any severity. Pick a bad sample to see the rules at work.',
+              ]
+          : ['All findings are hidden', 'Turn a severity back on with the buttons above.'];
     list.replaceChildren(
       el('li', { class: 'empty' }, el('strong', { text: msg[0] as string }), msg[1] as string),
     );
     return;
   }
   const out: Node[] = [];
-  for (const f of items) {
+  const slice = showAll ? items : items.slice(0, LIST_CAP);
+  for (const f of slice) {
     const rule = getRule(f.ruleId);
+    const key = `${f.ruleId}-${f.line}-${f.column}`;
     const li = el('li', { class: `finding ${f.severity}` });
-    const jump = el('button', {
-      type: 'button',
-      class: 'jump',
-      'aria-label': `${SEV_LABEL[f.severity]} ${f.ruleId} at line ${f.line}: ${f.message}`,
-    });
+    const jump = el('button', { type: 'button', class: 'jump' });
     jump.append(
       el(
         'span',
         { class: 'meta' },
-        el('span', { class: `sev ${f.severity}`, text: SEV_LABEL[f.severity] }),
+        el('span', { class: `sev ${f.severity}` }, marker(f.severity), SEV_LABEL[f.severity]),
         el('span', { class: 'rid', text: f.ruleId }),
         el('span', { text: `line ${f.line}, col ${f.column}` }),
-        el('span', { class: 'tag', text: f.category }),
+        el('span', { text: f.category }),
       ),
       el('span', { class: 'msg', text: f.message }),
+      el('span', { class: 'sr', text: ' Show this line in the source.' }),
     );
     jump.addEventListener('click', () => jumpTo(f));
     li.append(jump);
@@ -172,18 +208,21 @@ function renderList(): void {
       fx.addEventListener('click', () => applyOne(f));
       acts.append(fx);
     }
-    acts.append(
-      el('a', {
-        class: 'btn',
-        href: `./rules.html#${f.ruleId}`,
-        text: 'Rule page',
-        style: 'display:inline-flex;align-items:center;text-decoration:none',
-      }),
-    );
+    let panel: HTMLElement | undefined;
     if (rule) {
-      const d = el('details');
-      d.append(
-        el('summary', { text: 'Why it matters' }),
+      const panelId = `why-${key}`;
+      const isOpen = openWhy.has(key);
+      const toggle = el('button', {
+        type: 'button',
+        class: 'disclose',
+        'aria-expanded': String(isOpen),
+        'aria-controls': panelId,
+        'aria-label': `Why it matters, ${f.ruleId}`,
+      });
+      toggle.append(el('i', { class: 'chev', 'aria-hidden': 'true' }), 'Why it matters');
+      panel = el(
+        'div',
+        { class: 'why-panel', id: panelId },
         el('p', { class: 'why', text: rule.why }),
         el(
           'div',
@@ -192,10 +231,40 @@ function renderList(): void {
           el('figure', {}, el('figcaption', { text: 'After' }), snippet(rule.after)),
         ),
       );
-      acts.append(d);
+      panel.hidden = !isOpen;
+      const p = panel;
+      toggle.addEventListener('click', () => {
+        const open = toggle.getAttribute('aria-expanded') !== 'true';
+        toggle.setAttribute('aria-expanded', String(open));
+        p.hidden = !open;
+        if (open) openWhy.add(key);
+        else openWhy.delete(key);
+      });
+      acts.append(toggle);
     }
+    acts.append(
+      el('a', {
+        class: 'rulelink',
+        href: `./rules.html#${f.ruleId}`,
+        text: 'Rule page',
+        'aria-label': `Rule page for ${f.ruleId}`,
+      }),
+    );
     li.append(acts);
+    if (panel) li.append(panel);
     out.push(li);
+  }
+  if (items.length > slice.length) {
+    const more = el('button', {
+      type: 'button',
+      class: 'more',
+      text: `Show all ${items.length} findings (showing ${slice.length})`,
+    });
+    more.addEventListener('click', () => {
+      showAll = true;
+      renderList();
+    });
+    out.push(el('li', { class: 'more-row' }, more));
   }
   list.replaceChildren(...out);
 }
@@ -204,10 +273,14 @@ function jumpTo(f: Finding): void {
   activeLine = f.line;
   const start = offsetOf(f.line, f.column);
   const end = offsetOf(f.endLine, f.endColumn);
-  code.focus();
-  code.setSelectionRange(start, Math.max(start, end));
-  code.scrollTop = Math.max(0, (f.line - 4) * LINE_HEIGHT);
   renderGutter();
+  code.focus({ preventScroll: true });
+  code.setSelectionRange(start, Math.max(start, end));
+  const lh = lineHeightPx();
+  code.scrollTop = Math.max(0, (f.line - 4) * lh);
+  syncScroll();
+  editor.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  say(`Line ${f.line} selected in the source: ${f.ruleId}.`);
 }
 
 function setText(next: string, remember = true): void {
@@ -216,17 +289,41 @@ function setText(next: string, remember = true): void {
     if (history.length > 50) history.shift();
   }
   code.value = next;
+  activeLine = 0;
   run();
 }
 
 function applyOne(f: Finding): void {
   if (!f.fix) return;
   setText(applyEdits(code.value, f.fix.edits));
-  say(`Applied: ${f.fix.description}.`);
+  say(`Applied: ${f.fix.description}. ${remaining()}`);
+  undoBtn.focus();
 }
 
+function count(): string {
+  const n = findings.length;
+  return n === 0 ? 'No findings.' : `${n} finding${n === 1 ? '' : 's'}.`;
+}
+
+function remaining(): string {
+  const n = findings.length;
+  return n === 0 ? 'No findings left.' : `${n} finding${n === 1 ? '' : 's'} left.`;
+}
+
+/** A compose file is a mapping with a services key; anything else gets a hint, not a clean bill. */
+function notCompose(): boolean {
+  return (
+    currentKind() === 'compose' && code.value.trim() !== '' && !/^services\s*:/m.test(code.value)
+  );
+}
+
+/** Announce a result in the live region. Clearing first makes repeated messages re-announce. */
 function say(msg: string): void {
-  statusEl.textContent = msg;
+  window.clearTimeout(sayTimer);
+  statusEl.textContent = '';
+  sayTimer = window.setTimeout(() => {
+    statusEl.textContent = msg;
+  }, 60);
 }
 
 function run(): void {
@@ -241,11 +338,17 @@ function run(): void {
   renderList();
   renderGutter();
   const n = findings.length;
-  say(
+  const lines = code.value === '' ? 0 : code.value.split('\n').length;
+  srcMeta.textContent =
+    code.value.trim() === ''
+      ? 'Empty.'
+      : `${kindChoice === 'auto' ? 'Detected as' : 'Checked as'} ${kindName(kind)}. ${lines} line${lines === 1 ? '' : 's'}.`;
+  tally.textContent =
     code.value.trim() === ''
       ? ''
-      : `${n} finding${n === 1 ? '' : 's'} in ${kind === 'compose' ? 'compose file' : 'Dockerfile'} (${res.suppressed} suppressed by ignores).`,
-  );
+      : notCompose()
+        ? 'Nothing was checked.'
+        : `${n} finding${n === 1 ? '' : 's'}${res.suppressed ? `, ${res.suppressed} suppressed by ignore comments` : ''}.`;
 }
 
 function schedule(): void {
@@ -253,21 +356,32 @@ function schedule(): void {
   timer = window.setTimeout(run, 120);
 }
 
-code.addEventListener('input', schedule);
+code.addEventListener('input', () => {
+  // Undo only covers fixes; once the text is edited by hand, a stale snapshot would drop that edit.
+  history = [];
+  activeLine = 0;
+  sampleSel.value = '';
+  statusEl.textContent = '';
+  schedule();
+});
 code.addEventListener('scroll', syncScroll, { passive: true });
 fixAllBtn.addEventListener('click', () => {
   const kind = currentKind();
   const out = fixToFixpoint(code.value, (t) => lint(t, { kind }).findings);
   if (out.text === code.value) return;
   setText(out.text);
-  say(`Applied ${out.applied.length} fix${out.applied.length === 1 ? '' : 'es'}.`);
+  say(`Applied ${out.applied.length} fix${out.applied.length === 1 ? '' : 'es'}. ${remaining()}`);
+  undoBtn.focus();
 });
 
 undoBtn.addEventListener('click', () => {
   const prev = history.pop();
   if (prev === undefined) return;
   setText(prev, false);
-  say('Undid the last fix.');
+  say(`Undid the last fix. ${remaining()}`);
+  if (!fixAllBtn.disabled) fixAllBtn.focus();
+  else if (!undoBtn.disabled) undoBtn.focus();
+  else heading.focus();
 });
 
 for (const b of document.querySelectorAll<HTMLButtonElement>('.seg button')) {
@@ -275,11 +389,15 @@ for (const b of document.querySelectorAll<HTMLButtonElement>('.seg button')) {
     kindChoice = b.dataset.kind as 'auto' | FileKind;
     for (const o of document.querySelectorAll<HTMLButtonElement>('.seg button'))
       o.setAttribute('aria-pressed', String(o === b));
+    history = [];
     run();
+    say(
+      `Checking as ${kindName(currentKind())}. ${notCompose() ? 'No services key found, so nothing was checked.' : count()}`,
+    );
   });
 }
 
-sampleSel.append(el('option', { value: '', text: 'Load a sample...' }));
+sampleSel.append(el('option', { value: '', text: 'Choose a sample' }));
 const groups = [
   ['Bad examples', __SAMPLES__.filter((s) => s.id.startsWith('bad/'))],
   ['Good examples', __SAMPLES__.filter((s) => s.id.startsWith('good/'))],
@@ -293,12 +411,15 @@ sampleSel.addEventListener('change', () => {
   const s = __SAMPLES__.find((x) => x.id === sampleSel.value);
   if (!s) return;
   history = [];
+  openWhy.clear();
+  showAll = false;
   kindChoice = 'auto';
   for (const o of document.querySelectorAll<HTMLButtonElement>('.seg button'))
     o.setAttribute('aria-pressed', String(o.dataset.kind === 'auto'));
   setText(s.text, false);
   code.scrollTop = 0;
-  say(`Loaded ${s.label}.`);
+  syncScroll();
+  say(`Loaded ${s.label}. ${count()}`);
 });
 
 // Start with the most instructive bad example so the page is never empty.
